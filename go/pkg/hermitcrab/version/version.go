@@ -31,12 +31,11 @@ func ParseVersion(v string) (*semver.Version, error) {
 		return nil, fmt.Errorf("invalid UI version format: %s", parts[1])
 	}
 
-	// Convert UI version to an integer and increment to avoid '0' prefix issues.
+	// Convert UI version to an integer.
 	uiVersion, err := strconv.Atoi(uiParts[1])
 	if err != nil {
 		return nil, fmt.Errorf("invalid UI version number: %s", uiParts[1])
 	}
-	uiVersion++
 
 	// Construct the semver-compatible version string.
 	// TODO(lasse): Don't introduce an empty patch release.

@@ -14,7 +14,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gorilla/mux"
 	"github.com/lassenordahl/hermitcrab/pkg/hermitcrab/bucket"
-	"github.com/lassenordahl/hermitcrab/pkg/hermitcrab/version"
 )
 
 type Server struct {
@@ -39,7 +38,6 @@ func NewServer(bm bucket.BucketManager, cacheDir string, logger *log.Logger) *Se
 // routes sets up the routes for the server.
 func (s *Server) routes() {
 	s.router.HandleFunc("/", s.serveLatestVersion).Methods("GET")
-	s.router.HandleFunc("/version/{version}", s.serveSpecificVersion).Methods("GET")
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -50,24 +48,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // serveLatestVersion serves the latest version of the patch.
 func (s *Server) serveLatestVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	// TODO(lasse): This is introducing a dependency on the bucket implementation working.
+	// This should gracefully fail and use the most-recent-patch release.
 	latestVersion, err := s.bucketManager.GetLatestPatchVersion(ctx, "24.1") // Hardcoded for demo
 	if err != nil {
 		http.Error(w, "Failed to get latest version", http.StatusInternalServerError)
 		return
 	}
 	s.serveVersion(w, r, latestVersion)
-}
-
-// serveSpecificVersion serves a specific version of the patch.
-func (s *Server) serveSpecificVersion(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	versionStr := vars["version"]
-	v, err := version.ParseVersion(versionStr)
-	if err != nil {
-		http.Error(w, "Invalid version", http.StatusBadRequest)
-		return
-	}
-	s.serveVersion(w, r, v)
 }
 
 // serveVersion serves the specified version of the patch.
