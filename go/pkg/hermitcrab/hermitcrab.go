@@ -11,9 +11,11 @@ type HermitCrab struct {
 	server *httpclient.Server
 }
 
+// New creates a new HermitCrab instance.
 func New(config Config) (*HermitCrab, error) {
 	server := httpclient.NewServer(config.BucketManager, config.CacheDir, config.Logger)
 
+	// Set up routes
 	return &HermitCrab{
 		config: config,
 		server: server,

@@ -22,6 +22,8 @@ func NewTestBucket() *TestBucket {
 	}
 }
 
+// AddVersion adds a version to the bucket. If the version is greater than the existing version
+// for the same major version, it will replace the existing version.
 func (tb *TestBucket) AddVersion(version string) error {
 	v, err := semver.NewVersion(version)
 	if err != nil {
@@ -34,6 +36,8 @@ func (tb *TestBucket) AddVersion(version string) error {
 	return nil
 }
 
+// GetLatestPatchVersion returns the latest patch version for a given major version.
+// This is a simple implementation that returns the version that was added last.
 func (tb *TestBucket) GetLatestPatchVersion(ctx context.Context, majorVersion string) (*semver.Version, error) {
 	v, ok := tb.versions[majorVersion]
 	if !ok {
@@ -42,12 +46,15 @@ func (tb *TestBucket) GetLatestPatchVersion(ctx context.Context, majorVersion st
 	return v, nil
 }
 
+// DownloadPatchVersion downloads the specified patch version and returns a reader. The content
+// of the reader is a simple HTML file with the version number. This is essentially operating as
+// a test utility to create an extremely simple way to generate test clients.
 func (tb *TestBucket) DownloadPatchVersion(ctx context.Context, version *semver.Version) (io.ReadCloser, error) {
 	var buf bytes.Buffer
 	gzw := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gzw)
 
-	// Create a simple index.html file
+	// Create a simple index.html file.
 	content := fmt.Sprintf("<html><body><h1>Version: %s</h1></body></html>", version.String())
 	hdr := &tar.Header{
 		Name:    "index.html",

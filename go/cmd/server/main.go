@@ -13,7 +13,7 @@ func main() {
 	logger := log.New(os.Stdout, "hermitcrab: ", log.LstdFlags)
 
 	testBucket := bucket.NewTestBucket()
-	err := testBucket.AddVersion("v24.1-ui.01")
+	err := testBucket.AddVersion("v24.1-ui.3")
 	if err != nil {
 		logger.Fatalf("Failed to add version: %v", err)
 	}
