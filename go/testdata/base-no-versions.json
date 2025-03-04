@@ -1,0 +1,9 @@
+{
+    "name": "Sample Manifest",
+    "description": "This is a sample manifest",
+    "metadata": {
+        "key1": "value1",
+        "key2": "value2"
+    },
+    "versions": []
+}

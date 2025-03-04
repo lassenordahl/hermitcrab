@@ -1,0 +1,112 @@
+name: release
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+  workflow_dispatch: # Allow manual runs to manually define releases
+    inputs:
+      version:
+        description: 'The version string for the upload'
+        required: true
+
+      project:
+          description: 'The project you are uploading to.'
+          required: true
+          default: 'ui'
+
+      artifacts_dir:
+          description: 'The artifacts directory to upload'
+          required: true
+          default: 'artifacts/outputs'
+  
+
+env:
+  GO_VERSION: "1.22"
+
+jobs:
+  release-ui:
+    environment: dev
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Setup Golang
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Install pnpm 
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+        run_install: false
+
+    - name: Install npm dependencies
+      run: cd demo-app && pnpm install
+
+    - name: Clean and create release directory
+      run: rm -rf ./artifacts && mkdir -p artifacts
+    - name: Build UI
+      # Fake this for now.
+      run: |
+        mkdir -p ./artifacts/ui
+        mkdir -p ./artifacts/outputs
+        ./scripts/build-ui.sh "${{ github.event.inputs.project }}" "${{ github.event.inputs.project }}" "${{ github.event.inputs.version }}"
+
+    - name: 'auth'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        credentials_json: '${{ secrets.GOOGLE_CREDENTIALS }}'
+
+    #- name: Pull the versions text file from GCP
+    #  run: | 
+    #    curl --fail-with-body -o versions.txt -s 'https://molt.cockroachdb.com/molt/cli/versions.txt' || cp ./climanifest/base-versions.txt versions.txt
+    #- name: Write the versions text file with updated binary links
+    #  # We want to clean the replicator.tgz if it exists.
+    #  # rm -f doesn't return an error if it doesn't exist; works for our use case.
+    #  run: |
+    #    rm -f ./artifacts/replicator.tgz
+    #    echo "" >> ./versions.txt
+    #    echo "" >> ./versions.txt
+    #    for i in $(ls artifacts); do 
+    #      if [[ ! $i == *"latest"* ]]; then
+    #        echo "${{ vars.BUCKET_URL }}/molt/cli/$i" >> ./versions.txt
+    #      fi
+    #    done
+    #    cp versions.txt ./artifacts/versions.txt
+    #    cat ./artifacts/versions.txt
+
+    - name: Generate the manifest
+      # TODO: update this so that it uses the downloaded manifest from cloud storage.
+      run: |
+        file=$(ls artifacts/outputs | tail -1)
+        cd go && go run ./cmd versions add -p "./testdata/base-versions.json" -o "../artifacts/outputs/manifest.json"  -v "${{ vars.BUCKET_URL }}/${{ github.event.inputs.project }}/$file"
+    - name: Upload binaries and manifest to GCP bucket
+      id: 'upload-binaries'
+      uses: google-github-actions/upload-cloud-storage@v1
+      with:
+        path: '${{ github.event.inputs.artifacts_dir }}'
+        destination: '${{ vars.GCS_BUCKET }}/${{ github.event.inputs.project }}/'
+        parent: false
+        headers: |-
+            cache-control:public, max-age=60 
+    - name: Output links
+      run: |
+        echo "CLI Binaries" >> $GITHUB_STEP_SUMMARY
+        for i in $(ls ${{ github.event.inputs.artifacts_dir }}); do 
+          echo "${{ vars.BUCKET_URL }}/${{ github.event.inputs.project }}/$i" >> $GITHUB_STEP_SUMMARY
+        done
+    # Needed for invalidate step.
+    #- name: 'Set up Google Cloud SDK'
+    #  uses: 'google-github-actions/setup-gcloud@v1'
+
+    # TODO: add back later.
+    #- name: Invalidate CDN cache
+    #  run: |
+    #    gcloud compute url-maps invalidate-cdn-cache molt-lms-release-artifacts-prod-default --path "/molt/cli/*" --async
